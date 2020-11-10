@@ -2,11 +2,14 @@ import random
 from PIL import Image
 from sys import argv
 from classes.color import Color
+import argparse
+import os
 
-N_RECTS = 40
-CANVAS_SIZE = 125
-POP_SIZE = 150
-PROB_RECT_RESET = 0.00
+N_RECTS = 50
+CANVAS_SIZE = 100
+POP_SIZE = 100
+PROB_RECT_RESET = 0.01
+INPUT_FILE = "original.jpg"
 
 def drawIndividu(individu):
     canvas = [[[0,0,0] for x in range(CANVAS_SIZE)] for y in range(CANVAS_SIZE)]
@@ -66,11 +69,9 @@ def reproductionIndiv(indivg, indivd):
 
 def mutationIndiv(indiv):
     for i in range(N_RECTS):
-        if random.random() < PROB_RECT_RESET:   
-            #w = int(random.betavariate(2,5) * CANVAS_SIZE)
-            #h = int(random.betavariate(2,5) * CANVAS_SIZE)
-            w = int(random.betavariate(1,2) * CANVAS_SIZE//2)
-            h = int(random.betavariate(1,2) * CANVAS_SIZE//2)
+        if random.random() < PROB_RECT_RESET:
+            w = int(random.betavariate(2,5) * CANVAS_SIZE)
+            h = int(random.betavariate(2,5) * CANVAS_SIZE)
             x = random.randrange(CANVAS_SIZE - w)
             y = random.randrange(CANVAS_SIZE - h)
             c = random.randrange(255)
@@ -96,34 +97,59 @@ class Individu(object):
 
 if __name__ == "__main__":
 
+    if not os.path.exists('bestIndividus'):
+        os.makedirs('bestIndividus')
 
-    image = Image.open('original3.jpg').convert('L').convert('RGB').resize((CANVAS_SIZE, CANVAS_SIZE))
-    imagePix = image.load()
-    imageCanvas = [[imagePix[x,y] for x in range(CANVAS_SIZE)] for y in range(CANVAS_SIZE)]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--N_RECTS', dest='N_RECTS', type=int, default=N_RECTS)
+    parser.add_argument('--CANVAS_SIZE', dest='CANVAS_SIZE', type=int, default=CANVAS_SIZE)
+    parser.add_argument('--POP_SIZE', dest='POP_SIZE', type=int, default=POP_SIZE)
+    parser.add_argument('--PROB_RECT_RESET', dest='PROB_RECT_RESET', type=float, default=PROB_RECT_RESET)
+    parser.add_argument('--INPUT_FILE', dest='INPUT_FILE', type=str, default=INPUT_FILE)
 
-    population = []
+    args = parser.parse_args()
+    if(args.N_RECTS <= 1):
+        print(Color.RED,"Number of rectangle should be superior than 1", Color.END)
+    elif(args.CANVAS_SIZE <= 0):
+        print(Color.RED,"Canvas size should be superior than 0", Color.END)
+    elif(args.POP_SIZE <= 3):
+        print(Color.RED,"Population size should be superior than 3", Color.END)
+    elif(args.PROB_RECT_RESET < 0.01 or args.PROB_RECT_RESET > 1.00):
+        print(Color.RED,"Reset probability size should be between 0.00 and 1.00", Color.END)
+    else:
+        N_RECTS = args.N_RECTS
+        CANVAS_SIZE = args.CANVAS_SIZE
+        POP_SIZE = args.POP_SIZE
+        PROB_RECT_RESET = args.PROB_RECT_RESET
+        INPUT_FILE = args.INPUT_FILE
 
-    for _ in range(POP_SIZE):
-        population.append(Individu())
+        image = Image.open(INPUT_FILE).convert('L').convert('RGB').resize((CANVAS_SIZE, CANVAS_SIZE))
+        imagePix = image.load()
+        imageCanvas = [[imagePix[x,y] for x in range(CANVAS_SIZE)] for y in range(CANVAS_SIZE)]
 
-    for generation in range(1000):
-        print('GENERATION', Color.GREEN,generation, Color.END)
-        popFitness = []
-        for individu in population:
-            popFitness.append((calcFitness(individu, imageCanvas), random.random(), individu))
-        popFitness.sort()
-        popFitness = popFitness[:POP_SIZE // 2]
-        bestIndiv = min(zip(popFitness, population))[1]
-        saveDoubleCanvas(imageCanvas, drawIndividu(bestIndiv), f'bestIndivs/gen{generation}.png')
-        #saveCanvas(drawIndividu(bestIndiv), f'bestIndivs/gen{generation}.png')
-        population = [popf[2] for popf in popFitness]
-        enfants = []
-        while len(enfants) + len(population) < POP_SIZE:
-            parent1, parent2 = random.sample(population, 2)
-            enfant = reproductionIndiv(parent1, parent2)
-            enfants.append(enfant)
-            
-        population.extend(enfants)
+        population = []
 
-        for i in range(POP_SIZE):
-            mutationIndiv(population[i])
+        for _ in range(POP_SIZE):
+            population.append(Individu())
+
+        for generation in range(1000):
+            print('GENERATION', Color.GREEN,generation, Color.END)
+            popFitness = []
+            for individu in population:
+                popFitness.append((calcFitness(individu, imageCanvas), random.random(), individu))
+            popFitness.sort()
+            popFitness = popFitness[:POP_SIZE // 2]
+            bestIndiv = min(zip(popFitness, population))[1]
+            saveDoubleCanvas(imageCanvas, drawIndividu(bestIndiv), f'bestIndividus/gen{generation}.png')
+            #saveCanvas(drawIndividu(bestIndiv), f'bestIndivs/gen{generation}.png')
+            population = [popf[2] for popf in popFitness]
+            enfants = []
+            while len(enfants) + len(population) < POP_SIZE:
+                parent1, parent2 = random.sample(population, 2)
+                enfant = reproductionIndiv(parent1, parent2)
+                enfants.append(enfant)
+                
+            population.extend(enfants)
+
+            for i in range(POP_SIZE):
+                mutationIndiv(population[i])
